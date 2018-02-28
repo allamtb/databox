@@ -2,9 +2,25 @@ import json
 import requests
 import time
 import threading
+from user_agent import generate_user_agent
 
 pageSize = 20
 request_id = int(time.time() * 1000)
+# 稀有度倒序
+RAREDEGREE_DESC = "RAREDEGREE_DESC"
+
+# 稀有度正序
+RAREDEGREE_ASC = "RAREDEGREE_ASC"
+
+# 创建时间正序
+
+CREATETIME_ASC = "CREATETIME_ASC"
+
+#创建时间倒序
+
+CREATETIME_DESC = "CREATETIME_DESC"
+
+
 
 
 def get_headers():
@@ -27,16 +43,21 @@ def getMarketData(pageno=1):
     try:
         data = {
             "appId": 1,
-            "lastAmount": 1,
-            "lastRareDegree": 0,
+            "lastAmount": None,
+            "lastRareDegree": None,
             "pageNo": pageno,
             "pageSize": pageSize,
             "petIds": [],
-            "querySortType": "AMOUNT_ASC",
-            "requestId": request_id,
+            "querySortType": "RAREDEGREE_DESC",
+            "requestId": int(time.time() * 1000),
             "tpl": "",
         }
-        page = requests.post("https://pet-chain.baidu.com/data/market/queryPetsOnSale", headers=_headers,
+
+
+        myheader = _headers.copy()
+        myheader['User-Agent']= generate_user_agent()
+
+        page = requests.post("https://pet-chain.baidu.com/data/market/queryPetsOnSale", headers=myheader,
                              data=json.dumps(data))
         if page.json().get(u"errorMsg") == u"success":
             rawData = page.json()
@@ -71,7 +92,9 @@ def getPetDetailByPetId(pet_no):
 
 
 def getTotalPages():
-    return int(getMarketData().get(u"data").get("totalCount") / pageSize) + 1
+    total =getMarketData().get(u"data").get("totalCount")
+    print("当前交易的莱茨狗总量{}个".format(total))
+    return int(total / pageSize) + 1
 
 
 def getPetsByPage(page_no):

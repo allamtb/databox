@@ -13,25 +13,27 @@ def getPetsMultiThread(q):
         print("线程号{},处理页数{}".format(threading.currentThread().name, page_no))
         try:
             pets = getMarketData(page_no).get(u"data").get("petsOnSale")
+            print(pets)
             for pet in pets:
                 petId = str(pet.get(u"petId"))
-                petDetail = getPetDetailByPetId(petId)
-                print("莱特狗信息{}，详细信息{}".format(pet, petDetail))
+              #  petDetail = getPetDetailByPetId(petId)
+             #   print("莱特狗信息{}，详细信息{}".format(pet, petDetail))
         except Exception as e:
             print("由于链接百度失败 {}，组织决定补采该页数据页 {}".format(str(e),page_no))
+            time.sleep(0.05)
             q.put(page_no)
 
 
 def getCurrentAllMarketPet():
 
-    totalPageSize = 1
+    totalPageSize = getTotalPages()
    # all_Pets = []
     q = queue.Queue()
-    [q.put(i) for i in range(totalPageSize)]
+    [q.put(i) for i in range(int(90))]
 
     # 创建多线程
     threadPool = []
-    for i in range(30):
+    for i in range(totalPageSize):
         t = threading.Thread(target=getPetsMultiThread, args=(q,))
         t.start()
         threadPool.append(t)
@@ -51,4 +53,4 @@ print("花费了{}秒".format(time2 - time1))
 # with open("all_pets.json", 'w', encoding='utf-8') as json_file:
 #     json.dump(all_Pets, json_file,ensure_ascii=False)
 
-# print(getPetDetailByNo(1881204334306883268))
+#print(getPetDetailByPetId(1882327966471304705))

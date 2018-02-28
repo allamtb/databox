@@ -1,11 +1,10 @@
 Host: pet-chain.baidu.com
 Connection: keep-alive
-Content-Length: 90
+Content-Length: 201
 Accept: application/json
 Origin: https://pet-chain.baidu.com
-User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36
 Content-Type: application/json
-Referer: https://pet-chain.baidu.com/chain/detail?channel=market&petId=1886900045057557770&validCode=
+Referer: https://pet-chain.baidu.com/
 Accept-Encoding: gzip, deflate, br
 Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
-Cookie: PSTM=1499759280; BIDUPSID=5FBB94485610B982545B2BC891E6BC7F; BAIDUID=A5E6510107151C3A49A5F36991A8CFAE:FG=1; pgv_pvi=6784177152; pgv_si=s6433086464; FP_UID=a0f31973db2a37579a97bcd9d8983b80; BDRCVFR[feWj1Vr5u3D]=I67x6TjHwwYf0; PSINO=1; H_PS_PSSID=25641_1423_21115_20718; BDORZ=B490B5EBF6F3CD402E515D22BCDA1598; BDUSS=TZaOUh2TGh5Nms2NWxiZ3RYRDN1Qk8wcjZCcGhLamFrcE0wTXNRS3NJOX5UYmRhQUFBQUFBJCQAAAAAAAAAAAEAAADkhmArtPDM4s31eXkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH~Aj1p~wI9ae
