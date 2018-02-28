@@ -1,95 +1,54 @@
 from __future__ import unicode_literals
-import requests
-import json
-import time
 
-pageSize = 20
-request_id = int(time.time() * 1000)
-
-
-def getMarketData(pageno=1):
-    rawData = []
-    try:
-        data = {
-            "appId": 1,
-            "lastAmount": 1,
-            "lastRareDegree": 0,
-            "pageNo": pageno,
-            "pageSize": pageSize,
-            "petIds": [],
-            "querySortType": "AMOUNT_ASC",
-            "requestId": request_id,
-            "tpl": "",
-        }
-        page = requests.post("https://pet-chain.baidu.com/data/market/queryPetsOnSale", headers=_headers,
-                             data=json.dumps(data))
-        if page.json().get(u"errorMsg") == u"success":
-            rawData = page.json()
-    except Exception as e:
-        print(e)
-    return rawData
+import queue
+import threading
+from webutil import *
+from timeit import timeit
 
 
-def getPetDetailByNo(pet_no):
-    rawData = []
-    try:
-        querypet_data = {
-            "appId": 1,
-            "petId": pet_no,
-            "requestId": request_id,
-            "tpl": ""
-        }
-
-        _headers[
-            'Referer'] = "https://pet-chain.baidu.com/chain/detail?channel=market&petId={}&appId=1&validCode={}".format(
-            pet_no, '')
-
-        page = requests.post("https://pet-chain.baidu.com/data/pet/queryPetById", headers=_headers,
-                             data=json.dumps(querypet_data))
-
-        if page.json().get(u"errorMsg") == u"success":
-            rawData = page.json().get(u"data").get(u"attributes")
-    except Exception as e:
-        print(e)
-
-    return rawData
+def getPetsMultiThread(q):
+    while q.qsize() > 0:
+        page_no = q.get()
+        page_no += 1
+        print("线程号{},处理页数{}".format(threading.currentThread().name, page_no))
+        try:
+            pets = getMarketData(page_no).get(u"data").get("petsOnSale")
+            for pet in pets:
+                petId = str(pet.get(u"petId"))
+                petDetail = getPetDetailByPetId(petId)
+                print("莱特狗信息{}，详细信息{}".format(pet, petDetail))
+        except Exception as e:
+            print("由于链接百度失败 {}，组织决定补采该页数据页 {}".format(str(e),page_no))
+            q.put(page_no)
 
 
-def get_headers():
-    with open("data/headers.txt") as f:
-        lines = f.readlines()
-        headers = dict()
-        for line in lines:
-            splited = line.strip().split(":")
-            key = splited[0].strip()
-            value = ":".join(splited[1:]).strip()
-            headers[key] = value
-    return headers
+def getCurrentAllMarketPet():
 
+    totalPageSize = 1
+   # all_Pets = []
+    q = queue.Queue()
+    [q.put(i) for i in range(totalPageSize)]
 
-def getTotalPages():
-    return int(getMarketData().get(u"data").get("totalCount") / pageSize) + 1
+    # 创建多线程
+    threadPool = []
+    for i in range(30):
+        t = threading.Thread(target=getPetsMultiThread, args=(q,))
+        t.start()
+        threadPool.append(t)
+    #join加入到主线程中,使主线程阻塞
+    for t in threadPool:
+        t.join()
 
+time1 = time.time()
+getCurrentAllMarketPet()
 
-def getPetsByPage(page_no):
-    return getMarketData(page_no).get(u"data").get("petsOnSale")
-
-
-
-
-_headers = get_headers()
-totalPageSize = getTotalPages()
-all_Pets = []
-
-# for i in range(1):
+time2 = time.time()
+print("花费了{}秒".format(time2 - time1))
+# for i in tqdm(range(1)):
+#   #  print("当前处理到第{}页".format((i+1)))
 #     all_Pets.append(getPetsByPage(i + 1))
 #
 # with open("all_pets.json", 'w', encoding='utf-8') as json_file:
 #     json.dump(all_Pets, json_file,ensure_ascii=False)
 
-print(getPetDetailByNo(1881204334306883268))
-
-# page1 = theMarket(headers,1)
-# page2 = theMarket(headers,2)
-# print(page1)
-# print(page2)
+# print(getPetDetailByNo(1881204334306883268))
