@@ -29,11 +29,11 @@ def getCurrentAllMarketPet():
     totalPageSize = getTotalPages()
    # all_Pets = []
     q = queue.Queue()
-    [q.put(i) for i in range(int(90))]
+    [q.put(i) for i in range(int(totalPageSize))]
 
     # 创建多线程
     threadPool = []
-    for i in range(totalPageSize):
+    for i in range(60):
         t = threading.Thread(target=getPetsMultiThread, args=(q,))
         t.start()
         threadPool.append(t)
@@ -41,11 +41,13 @@ def getCurrentAllMarketPet():
     for t in threadPool:
         t.join()
 
-time1 = time.time()
-getCurrentAllMarketPet()
+# time1 = time.time()
+# getCurrentAllMarketPet()
+#
+# time2 = time.time()
+# print("花费了{}秒".format(time2 - time1))
 
-time2 = time.time()
-print("花费了{}秒".format(time2 - time1))
+#print(getPetsByPage(140))
 # for i in tqdm(range(1)):
 #   #  print("当前处理到第{}页".format((i+1)))
 #     all_Pets.append(getPetsByPage(i + 1))
