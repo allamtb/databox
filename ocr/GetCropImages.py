@@ -38,7 +38,7 @@ def main():
 def imageZoom6020(image):
     image = image.convert('L')  # 灰度化
     width, height = image.size # 获取图像的宽和高
-    zoom_k = min(width/60, height/20)# 缩放倍数
+    zoom_k = min(width/6, height/2)# 缩放倍数
     # print('缩放倍数', zoom_k)
 
     # 缩放后的长宽

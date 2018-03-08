@@ -4,10 +4,8 @@ import numpy
 from GetCropImages import *
 from math import *
 from PIL import ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-#step 1 灰度化
-
-
 
 
 ### No.4 二值化
@@ -15,7 +13,7 @@ def binarization(image):
     img_grey = image.convert('L')  # 灰度化
 
     threshold = 128  # 二值化阀值
-    table = [] #二值化依据
+    table = []  # 二值化依据
     for i in range(256):
         if i < threshold:
             table.append(0)
@@ -26,10 +24,11 @@ def binarization(image):
 
     return img_bin
 
+
 def removeNoise(image):
     width, height = image.size  # 获取宽和高
 
-    is_once = False #是否继续去噪
+    is_once = False  # 是否继续去噪
     for x_column in range(width):
         for y_row in range(height):
             # 黑点周围黑点数（包括自己）少于3的 去掉黑点 设为白色
@@ -37,13 +36,14 @@ def removeNoise(image):
                 image.putpixel((x_column, y_row), 1)
                 is_once = True
 
-    return is_once, image#返回去噪声的图片
+    return is_once, image  # 返回去噪声的图片
+
 
 # 寻找孤立点 返回黑点8领域的黑点数量
 def findIsolatedPoints(image, x_column, y_row):
     # 判断图片的长宽度下限
     cur_pixel = image.getpixel((x_column, y_row))  # 当前像素点的值
-    width, height = image.size # 获取宽和高
+    width, height = image.size  # 获取宽和高
 
     if cur_pixel == 1:  # 如果当前点为白色区域,则不统计邻域值
         return 0
@@ -55,7 +55,7 @@ def findIsolatedPoints(image, x_column, y_row):
                   + image.getpixel((x_column + 1, y_row)) + image.getpixel((x_column + 1, y_row + 1))
             return 4 - sum
         elif x_column == width - 1:  # 右上顶点
-            sum = cur_pixel  + image.getpixel((x_column, y_row + 1)) \
+            sum = cur_pixel + image.getpixel((x_column, y_row + 1)) \
                   + image.getpixel((x_column - 1, y_row)) + image.getpixel((x_column - 1, y_row + 1))
             return 4 - sum
         else:  # 最上非顶点,6邻域
@@ -66,15 +66,15 @@ def findIsolatedPoints(image, x_column, y_row):
     elif y_row == height - 1:  # 最下面一行
         if x_column == 0:  # 左下顶点
             # 中心点旁边3个点
-            sum = cur_pixel  + image.getpixel((x_column + 1, y_row)) \
+            sum = cur_pixel + image.getpixel((x_column + 1, y_row)) \
                   + image.getpixel((x_column + 1, y_row - 1)) + image.getpixel((x_column, y_row - 1))
             return 4 - sum
         elif x_column == width - 1:  # 右下顶点
-            sum = cur_pixel  + image.getpixel((x_column, y_row - 1)) \
+            sum = cur_pixel + image.getpixel((x_column, y_row - 1)) \
                   + image.getpixel((x_column - 1, y_row)) + image.getpixel((x_column - 1, y_row - 1))
             return 4 - sum
         else:  # 最下非顶点,6邻域
-            sum = cur_pixel  + image.getpixel((x_column - 1, y_row)) \
+            sum = cur_pixel + image.getpixel((x_column - 1, y_row)) \
                   + image.getpixel((x_column + 1, y_row)) + image.getpixel((x_column, y_row - 1)) \
                   + image.getpixel((x_column - 1, y_row - 1)) + image.getpixel((x_column + 1, y_row - 1))
             return 6 - sum
@@ -92,42 +92,26 @@ def findIsolatedPoints(image, x_column, y_row):
         else:  # 具备9领域条件的
             sum = image.getpixel((x_column - 1, y_row - 1)) + image.getpixel((x_column - 1, y_row)) \
                   + image.getpixel((x_column - 1, y_row + 1)) + image.getpixel((x_column, y_row - 1)) \
-                  + cur_pixel  + image.getpixel((x_column, y_row + 1)) + image.getpixel((x_column + 1, y_row - 1)) \
+                  + cur_pixel + image.getpixel((x_column, y_row + 1)) + image.getpixel((x_column + 1, y_row - 1)) \
                   + image.getpixel((x_column + 1, y_row)) + image.getpixel((x_column + 1, y_row + 1))
             return 9 - sum
 
+
 def startRefine(ori_image):
-    img_grey = ori_image.convert('L')  # 灰度化
 
-    threshold = 200  # 二值化阀值
-    table = []  # 二值化依据
-    for i in range(256):
-        if i < threshold:
-            table.append(0)
-        else:
-            table.append(1)
-
-    image = img_grey.point(table, '1')  # 二值化
-    # image.show()
-
-    # for x_row in range(height):
-    #     for y_col in range(width):
-    #         print(image_matrix[x_row][y_col], end=' ')
-    #     print()
     count = 0
     while 1:
-        removeNodules(image)
+        removeNodules(ori_image)
         count += 1
 
         if count == 20:
             break
-
-    # print('count',count)
     return image
+
 
 ##细化图像 抽取骨架
 def removeNodules(image):
-    #事先做好的表
+    # 事先做好的表
     array = [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, \
              1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, \
              0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, \
@@ -145,7 +129,7 @@ def removeNodules(image):
              1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, \
              1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0]
 
-    is_go = True # 是否继续
+    is_go = True  # 是否继续
     w, h = image.size
     # 水平扫描
     next = 1
@@ -193,26 +177,14 @@ def removeNodules(image):
     # image.save('r2.jpg')
 
     return is_go
-#
-# img_bin = binarization(img_grey)
-#
-# is_once = 1
-# while is_once:
-#     is_once, image_removedNoise = removeNoise(img_bin)  # No.5
-#
-#
-# image_removedNoise.show()
-#
-# image_refined = startRefine(image_removedNoise)
-#
-# image_refined.show()
+
 
 
 
 def imageZoom6020(image):
     image = image.convert('L')  # 灰度化
-    width, height = image.size # 获取图像的宽和高
-    zoom_k = min(width/60, height/20)# 缩放倍数
+    width, height = image.size  # 获取图像的宽和高
+    zoom_k = min(width / 6, height / 2)  # 缩放倍数
     # print('缩放倍数', zoom_k)
 
     # 缩放后的长宽
@@ -228,8 +200,8 @@ def imageZoom6020(image):
             # 新图像坐标对应原图像的坐标
             x = x_column * zoom_k
             y = y_row * zoom_k
-            #print(x, end=" ")
-            #print(y)
+            # print(x, end=" ")
+            # print(y)
 
             # 向下取整
             m = int(x)
@@ -242,35 +214,38 @@ def imageZoom6020(image):
             # print(float_y)
 
             # 边界判断
-            if m+1 >= width:
-                m = width-2
-            if n+1 >= height:
-                n = height-2
+            if m + 1 >= width:
+                m = width - 2
+            if n + 1 >= height:
+                n = height - 2
 
             # print(m, ' ', n)
             # print("4个点{},{},{},{}".format(image.getpixel((m,n)),image.getpixel((m,n+1)),image.getpixel((m+1,n)), image.getpixel((m+1,n+1))))
-            first_n_pix = (image.getpixel((m,n+1))-image.getpixel((m,n))) * float_y + image.getpixel((m,n))
-            second_n_pix = (image.getpixel((m+1, n+1)) - image.getpixel((m+1,n))) * float_y + image.getpixel((m+1,n))
-            #print(int((second_n_pix - first_n_pix) * float_x + first_n_pix))
+            first_n_pix = (image.getpixel((m, n + 1)) - image.getpixel((m, n))) * float_y + image.getpixel((m, n))
+            second_n_pix = (image.getpixel((m + 1, n + 1)) - image.getpixel((m + 1, n))) * float_y + image.getpixel(
+                (m + 1, n))
+            # print(int((second_n_pix - first_n_pix) * float_x + first_n_pix))
             image_matrix[y_row][x_column] = int((second_n_pix - first_n_pix) * float_x + first_n_pix)
 
-    new_data = numpy.reshape(image_matrix,(new_h,new_w))
-    #print(type(new_data))
+    new_data = numpy.reshape(image_matrix, (new_h, new_w))
+    # print(type(new_data))
     new_im = Image.fromarray(new_data)
-    #new_im.show()## 显示图片
+    # new_im.show()## 显示图片
 
     return new_im
 
+
 image = Image.open('../data/8tex.jpg')
 image.show()
-#img_grey = image.convert('L')  # 灰度化
-image = imageZoom6020(image)# NO.O.2
+# img_grey = image.convert('L')  # 灰度化
+#image = imageZoom6020(image)  # NO.O.2
 ### NO.3
-image_refine = startRefine(image) #抽取骨架
+image = binarization(image)
+image_refine = startRefine(image)  # 抽取骨架
 remove_noise_line = RemoveNoiseLine(image_refine, image)
 line_has, image_result = remove_noise_line.start()
-image = binarization(image_result)# No.4
-is_once, image = removeNoise(image)# No.5
+image = binarization(image_result)  # No.4
+is_once, image = removeNoise(image)  # No.5
 while is_once:
     is_once, image = removeNoise(image)  # No.5
     # image.show()
@@ -288,18 +263,8 @@ while line_has:
         # image.show()
 image.show()
 
-image = beforCrop(image)  # 切割前处理
+#image = beforCrop(image)  # 切割前处理
 
-image.show()
-# is_once, image = removeNoise(image)  # 去噪
-# res_img_list = getCropImages(image)  # 切割
-# same_img_list = []
-# # 大小归一化
-# for img in res_img_list:
-#     width, height = img.size  # 获取图像的宽和高
-#     # 删除异常图片
-#     if width < 3 or height < 4:
-#         continue
-#
-#     imageZoom6020(img).show()
+#image.show()
+
 #
