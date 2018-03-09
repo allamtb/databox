@@ -6,8 +6,12 @@ from matplotlib import gridspec
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
 import random, os
+from smart_separate import *
+import queue
+import os
 
-class Image:
+
+class ImageHandler:
     '''
         如果type=url
         getimg參數要傳入requests回傳的content
@@ -35,7 +39,8 @@ class Image:
             self.im = cv2.imread(getimg)
             self.dicImg.update({"原始圖片": self.im.copy()})
 
-        #  閾值化
+            #  閾值化
+
     def threshold(self):
         # 115 是 threshold，越高濾掉越多
         # 255 是當你將 method 設為 THRESH_BINARY_INV 後，高於 threshold 要設定的顏色
@@ -63,56 +68,33 @@ class Image:
                             except IndexError:
                                 pass
                     # 這裡 threshold 設 4，當週遭小於 4 個點的話視為雜點
-                    if count <= 12:
+                    if count <= 10:
                         self.im[i][j] = 255
 
         self.dicImg.update({"去噪": self.im.copy()})
 
-
-
     def RemoveNoiseLine(self):
         # 找出驗證碼干擾線的起點跟終點
-        lineColor = 222  # 將線段設定為黑或白色 255:白 0:黑
-        (height, width) = self.im.shape
-        for i in range(height):
-            print('i=',i)
-            # 搜尋最左邊pixel 如果此點是黑線 往下找五個點
-            if self.im[i][0] == 0:
-                count = 0
-                for c in range(i, i+5):
-                    try:
-                        if self.im[c][0] == 0:
-                            count += 1
-                        else:
-                            break
-                    except:
-                        pass
-                if count >= 3:
-                    for c in range(0,count):
-                        print('i+c=', (i + c))
-                        self.im[i + c][0] = lineColor # 將此線段設為白色
-            # 搜尋最右邊pixel
-            rightBorder = width-1
-            if self.im[i][rightBorder] == 0:
-                countRight = 0
-                for c in range(i, i+5):
-                    try:
-                        if self.im[c][rightBorder] == 0:
-                            countRight += 1
-                        else:
-                            break
-                    except:
-                        pass
-                if countRight >= 3:
-                    for c in range(0,countRight):
-                        print('i+c=', (i + c))
-                        self.im[i + c][rightBorder] = lineColor # 將此線段設為白色
-
+        lineColor = 255  # 將線段設定為黑或白色 255:白 0:黑
+        (rows, cols) = self.im.shape
+        for col in range(cols):
+            for row in range(rows):
+                # 如果此點是黑点 往下找五個點
+                if self.im[row][col] == 0:
+                    count = 0
+                    for c in range(row, row + 6):
+                        try:
+                            if self.im[c][col] == 0:
+                                count += 1
+                            else:
+                                break
+                        except:
+                            pass
+                    if count < 2:
+                        for c in range(0, count):
+                            self.im[row + c][col] = lineColor  # 將此線段設為白色
 
         self.dicImg.update({"找出噪線": self.im.copy()})
-
-
-
 
     #  將圖片顯示出來
     def showImg(self, img=None):
@@ -121,15 +103,18 @@ class Image:
 
         cv2.imshow(self.imageName, img)
         cv2.namedWindow(self.imageName, cv2.WINDOW_NORMAL)
-        #  調整視窗 讓標題列顯示出來
-        #cv2.resizeWindow(self.imageName, 250, 60)
         cv2.waitKey()
+
+    def saveImg(self, filePath=None):
+
+        cv2.imwrite(filePath, self.im)
+
     #  將多個圖片顯示在一個figure
-    def showImgEveryStep(self,):
+    def showImgEveryStep(self, ):
         diclength = len(self.dicImg)
         if diclength > 0:
             fig = plt.figure(figsize=(10, 10))
-            gs = gridspec.GridSpec(diclength+1, 6)
+            gs = gridspec.GridSpec(diclength + 1, 6)
 
             # 依序列出dict物件裡的圖片
             for index, key in enumerate(self.dicImg):
@@ -151,22 +136,97 @@ class Image:
         else:
             print('圖片數字陣列為空')
 
+    def findOnePoint(self, threshold):
+
+        (rows, cols) = self.im.shape
+        for col in range(cols):
+            if col <= threshold:
+                continue
+            for row in range(rows):
+                if self.im[row, col] == 0:
+                    return (row, col)
+        return None, None
+
+    # 挖地雷的方法，一一打开未知领域。
+    def findContinuousPoints(self, row_start, col_start):
+        xaxis = [0]
+        yaxis = [0]
+
+        visited = set()
+        q = queue.Queue()
+        q.put((row_start, col_start))
+        visited.add((row_start, col_start))
+        offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]  # 四邻域
+
+        while not q.empty():
+            x, y = q.get()
+
+            for xoffset, yoffset in offsets:
+                x_neighbor, y_neighbor = x + xoffset, y + yoffset
+
+                if (x_neighbor, y_neighbor) in (visited):
+                    continue  # 已经访问过了
+
+                visited.add((x_neighbor, y_neighbor))
+
+                try:
+                    if self.im[x_neighbor, y_neighbor] == 0:
+                        xaxis.append(x_neighbor)
+                        yaxis.append(y_neighbor)
+                        q.put((x_neighbor, y_neighbor))
+
+                except IndexError:
+                    pass
+
+        return xaxis, yaxis
+
+    def getLetterGroup(self):
+        start = 0
+        letterGroup = []
+        while start < self.im.shape[1]:
+            row_start_point, colum_Start_Point = self.findOnePoint(start)
+            if row_start_point is None:
+                break
+            rows, cols = self.findContinuousPoints(row_start_point, colum_Start_Point)
+            if (len(cols) > 200):
+                letterGroup.append(cols)
+            if max(cols) > start:
+                start = max(cols)
+            else:  # 当遇到孤立的点的时候，查找到的Y的跨度不会变大。
+                start += 1
+        return letterGroup
 
 if __name__ == '__main__':
     path = "../data/captcha_dataset"
-    # 隨機選一張圖片
-
     for x in os.listdir(path):
         if os.path.isfile(os.path.join(path, x)):
+            filePath = path + '\\' + x
 
-            filename = path + '\\' + x
-            print(filename)
-            x = Image(filename, 'local')
-            x.threshold()
-            #x.RemoveNoiseLine()
-            x.removeNoise()
-           # x.showImgEveryStep()
-            x.showImg()
+            base_file_name = os.path.basename(filePath)
 
-            (height, width) = x.im.shape
+            raw_name, _ = os.path.splitext(base_file_name)
+            # if raw_name != 'vmdk':
+            #     continue
+            print(raw_name)
 
+            imageHandler = ImageHandler(filePath, 'local')
+            imageHandler.threshold()
+            imageHandler.RemoveNoiseLine()
+            imageHandler.removeNoise()
+            imageHandler.showImgEveryStep()
+            imageHandler.saveImg("../prethreatment/" + raw_name + ".jpg")
+            letterGroup= imageHandler.getLetterGroup()
+            if len(letterGroup) != len(raw_name):
+                raise RuntimeError("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
+            for i in range(len(letterGroup)):
+                letter_index = letterGroup[i]
+                cropImage = imageHandler.im[:, min(letter_index):max(letter_index)]
+                imageHandler.showImg(cropImage)
+                cv2.resize(cropImage, (20, 60))
+                letterName = raw_name[i]
+                directoryPath = '../data/sample/' + letterName
+                if not os.path.exists(directoryPath):
+                    os.makedirs(directoryPath)
+
+                cv2.imwrite(directoryPath + "/" + letterName.upper() + "_" + raw_name + ".jpg", cropImage)
+                cv2.waitKey(0)
