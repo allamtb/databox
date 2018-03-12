@@ -5,10 +5,10 @@ import collections
 from matplotlib import gridspec
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
-import random, os
-from smart_separate import *
 import queue
 import os
+
+from tqdm import tqdm
 
 
 class ImageHandler:
@@ -21,6 +21,7 @@ class ImageHandler:
 
     def __init__(self, getimg, type='url'):
         #  設置 matplotlib 中文字體
+        self.cutStepNumber = 2
         self.font = FontProperties(fname=r"c:\windows\fonts\SimSun.ttc", size=14)
         #  儲存檔名
         self.imageName = 'fileName'
@@ -52,26 +53,25 @@ class ImageHandler:
     #  去噪
     def removeNoise(self):
         # 先膨脹再去噪
-        print(self.im.shape)
+        #print(self.im.shape)
         self.im = cv2.dilate(self.im, (2, 2), iterations=1)
-        print(self.im.shape)
-
-        for i in range(len(self.im)):
-            for j in range(len(self.im[i])):
-                if self.im[i][j] == 0:
+        rows,cols = self.im.shape
+        for cols in range(cols):
+            for row in range(rows):
+                if self.im[row][cols] == 0:
                     count = 0
                     for k in range(-2, 3):
                         for l in range(-2, 3):
                             try:
-                                if self.im[i + k][j + l] == 0:
+                                if self.im[row + k][cols + l] == 0:
                                     count += 1
                             except IndexError:
                                 pass
                     # 這裡 threshold 設 4，當週遭小於 4 個點的話視為雜點
-                    if count <= 10:
-                        self.im[i][j] = 255
+                    if count <= 7:
+                        self.im[row][cols] = 255
 
-        self.dicImg.update({"去噪": self.im.copy()})
+        self.dicImg.update({"吹吹风": self.im.copy()})
 
     def RemoveNoiseLine(self):
         # 找出驗證碼干擾線的起點跟終點
@@ -90,11 +90,12 @@ class ImageHandler:
                                 break
                         except:
                             pass
-                    if count < 2:
+                    if count < self.cutStepNumber:
                         for c in range(0, count):
                             self.im[row + c][col] = lineColor  # 將此線段設為白色
+                    row += self.cutStepNumber
 
-        self.dicImg.update({"找出噪線": self.im.copy()})
+        self.dicImg.update({"切切切": self.im.copy()})
 
     #  將圖片顯示出來
     def showImg(self, img=None):
@@ -110,7 +111,7 @@ class ImageHandler:
         cv2.imwrite(filePath, self.im)
 
     #  將多個圖片顯示在一個figure
-    def showImgEveryStep(self, ):
+    def saveImgEveryStep(self, raw_name, show=False):
         diclength = len(self.dicImg)
         if diclength > 0:
             fig = plt.figure(figsize=(10, 10))
@@ -132,7 +133,9 @@ class ImageHandler:
                         pass
 
             plt.tight_layout()
-            plt.show()
+            if show:
+                plt.show()
+            plt.savefig("../prethreatment/" + raw_name + ".jpg")
         else:
             print('圖片數字陣列為空')
 
@@ -149,14 +152,16 @@ class ImageHandler:
 
     # 挖地雷的方法，一一打开未知领域。
     def findContinuousPoints(self, row_start, col_start):
-        xaxis = [0]
-        yaxis = [0]
+        xaxis = []
+        yaxis = []
 
         visited = set()
         q = queue.Queue()
         q.put((row_start, col_start))
         visited.add((row_start, col_start))
         offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]  # 四邻域
+        diagoal = [ (-1,-1),(1,1),(-1,1),(1,-1)] # 对角邻域
+        offsets.extend(diagoal)
 
         while not q.empty():
             x, y = q.get()
@@ -177,6 +182,8 @@ class ImageHandler:
 
                 except IndexError:
                     pass
+        if len(yaxis) == 0:
+            return ([0],[0])
 
         return xaxis, yaxis
 
@@ -192,37 +199,34 @@ class ImageHandler:
                 letterGroup.append(cols)
             if max(cols) > start:
                 start = max(cols)
-            else:  # 当遇到孤立的点的时候，查找到的Y的跨度不会变大。
+            else:  # 其他情况（可能是遇到孤立的点），查找到的列的跨度+1
                 start += 1
         return letterGroup
 
 if __name__ == '__main__':
     path = "../data/captcha_dataset"
-    for x in os.listdir(path):
+    for x in tqdm(os.listdir(path)):
         if os.path.isfile(os.path.join(path, x)):
             filePath = path + '\\' + x
-
             base_file_name = os.path.basename(filePath)
-
             raw_name, _ = os.path.splitext(base_file_name)
-            # if raw_name != 'vmdk':
-            #     continue
-            print(raw_name)
-
             imageHandler = ImageHandler(filePath, 'local')
             imageHandler.threshold()
             imageHandler.RemoveNoiseLine()
             imageHandler.removeNoise()
-            imageHandler.showImgEveryStep()
-            imageHandler.saveImg("../prethreatment/" + raw_name + ".jpg")
+            imageHandler.saveImgEveryStep(raw_name)
+            #imageHandler.saveImg("../prethreatment/" + raw_name + ".jpg")
             letterGroup= imageHandler.getLetterGroup()
             if len(letterGroup) != len(raw_name):
-                raise RuntimeError("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
+                # raise RuntimeError("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
+                print("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
+                continue
             for i in range(len(letterGroup)):
                 letter_index = letterGroup[i]
+
                 cropImage = imageHandler.im[:, min(letter_index):max(letter_index)]
                 imageHandler.showImg(cropImage)
-                cv2.resize(cropImage, (20, 60))
+                cropImage= cv2.resize(cropImage, (20, 60))
                 letterName = raw_name[i]
                 directoryPath = '../data/sample/' + letterName
                 if not os.path.exists(directoryPath):
