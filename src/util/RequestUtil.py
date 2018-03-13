@@ -21,7 +21,12 @@ CREATETIME_DESC = "CREATETIME_DESC"
 
 
 def get_headers():
-    with open("../../config/headers.txt") as f:
+    work_dir = os.path.dirname(os.path.abspath(__file__))
+    work_dir_upper = os.path.dirname(work_dir)
+    work_dir_upper_upper = os.path.dirname(work_dir_upper)
+    header_path = work_dir_upper_upper + os.path.sep + 'config' + os.path.sep + 'headers.txt'
+
+    with open(header_path) as f:
         lines = f.readlines()
         headers = dict()
         for line in lines:
@@ -104,7 +109,15 @@ def get_captcha():
             seed = resp.get(u"data").get(u"seed")
             img = resp.get(u"data").get(u"img")
             fileName = str(time.time())+".jpg"
-            with open('data/captcha_rawdata/'+fileName, 'wb') as file:
+           # directoryPath = '../../data/captcha_rawdata/'+fileName
+            # 生成跨浏览器的路径
+            work_dir = os.path.dirname(os.path.abspath(__file__))
+            work_dir_upper = os.path.dirname(work_dir)
+            work_dir_upper_upper = os.path.dirname(work_dir_upper)
+            directoryPath = work_dir_upper_upper + os.path.sep + 'data' + os.path.sep + 'captcha_rawdata'
+            if not os.path.exists(directoryPath):
+                os.makedirs(directoryPath)
+            with open(directoryPath+os.path.sep+fileName, 'wb') as file:
                 file.write(base64.b64decode(img))
                 file.close()
     except Exception as e:
