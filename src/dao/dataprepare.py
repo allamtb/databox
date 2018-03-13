@@ -5,7 +5,7 @@ import traceback
 import pymysql
 
 
-class mysql:
+class DataPrepare:
     def __init__(self):
         self.db = None
         self.cursor = None
@@ -72,6 +72,6 @@ class mysql:
 
 
 if __name__ == '__main__':
-    m = mysql()
+    m = DataPrepare()
     m.createTable()
     m.addTrainData()
