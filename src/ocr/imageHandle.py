@@ -20,8 +20,11 @@ class ImageHandler:
         '''
 
     def __init__(self, getimg, type='url'):
-        #  設置 matplotlib 中文字體
+        # 设置 吹风阈值， 越高吹掉的越多
+        self.threshold_number = 6
+        # 设置 竖切数 ，越高切的越多。
         self.cutStepNumber = 2
+        #  設置 matplotlib 中文字體
         self.font = FontProperties(fname=r"c:\windows\fonts\SimSun.ttc", size=14)
         #  儲存檔名
         self.imageName = 'fileName'
@@ -47,7 +50,7 @@ class ImageHandler:
         # 255 是當你將 method 設為 THRESH_BINARY_INV 後，高於 threshold 要設定的顏色
         # 反轉黑白 以利輪廓識別
         gray_image = cv2.cvtColor(self.im, cv2.COLOR_BGR2GRAY)
-        retval, self.im = cv2.threshold(gray_image, 115, 255, cv2.THRESH_BINARY)
+        retval, self.im = cv2.threshold(gray_image, 200, 255, cv2.THRESH_BINARY)
         self.dicImg.update({"閾值化": self.im.copy()})
 
     #  去噪
@@ -68,7 +71,7 @@ class ImageHandler:
                             except IndexError:
                                 pass
                     # 這裡 threshold 設 4，當週遭小於 4 個點的話視為雜點
-                    if count <= 7:
+                    if count <= self.threshold_number:
                         self.im[row][cols] = 255
 
         self.dicImg.update({"吹吹风": self.im.copy()})
@@ -135,7 +138,7 @@ class ImageHandler:
             plt.tight_layout()
             if show:
                 plt.show()
-            plt.savefig("../prethreatment/" + raw_name + ".jpg")
+            plt.savefig("../../prethreatment/" + raw_name + ".jpg")
         else:
             print('圖片數字陣列為空')
 
@@ -161,7 +164,7 @@ class ImageHandler:
         visited.add((row_start, col_start))
         offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]  # 四邻域
         diagoal = [ (-1,-1),(1,1),(-1,1),(1,-1)] # 对角邻域
-        offsets.extend(diagoal)
+       # offsets.extend(diagoal)
 
         while not q.empty():
             x, y = q.get()
@@ -195,7 +198,7 @@ class ImageHandler:
             if row_start_point is None:
                 break
             rows, cols = self.findContinuousPoints(row_start_point, colum_Start_Point)
-            if (len(cols) > 200):
+            if (len(cols) > 30):
                 letterGroup.append(cols)
             if max(cols) > start:
                 start = max(cols)
@@ -204,13 +207,16 @@ class ImageHandler:
         return letterGroup
 
 if __name__ == '__main__':
-    path = "../data/captcha_dataset"
+    path = "../../data/captcha_dataset"
     for x in tqdm(os.listdir(path)):
         if os.path.isfile(os.path.join(path, x)):
             filePath = path + '\\' + x
             base_file_name = os.path.basename(filePath)
             raw_name, _ = os.path.splitext(base_file_name)
+            if(raw_name != '1520911644.8154874'):
+                continue
             imageHandler = ImageHandler(filePath, 'local')
+            imageHandler.im = imageHandler.im[:,40:130]
             imageHandler.threshold()
             imageHandler.RemoveNoiseLine()
             imageHandler.removeNoise()
