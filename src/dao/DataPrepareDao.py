@@ -5,13 +5,13 @@ import traceback
 import pymysql
 
 
-class DataPrepare:
+class DataPrepareDao:
     def __init__(self):
         self.db = None
         self.cursor = None
 
     def checkConnect(self):
-        if self.db is None:
+        if self.db is None or self.db._closed is True:
             self.db = pymysql.connect("localhost", "root", "root", "databox")
         self.cursor = self.db.cursor()
 
@@ -42,36 +42,37 @@ class DataPrepare:
 
             self.db.rollback()
 
-    def addTrainData(self):
+    def addTrainData(self, captacha_name, captacha_data, sign, optdate):
         self.checkConnect()
         # SQL 插入语句
 
-        date = datetime.now().strftime("%Y-%m-%d %H")
-        print(date)
-
-        dt = datetime.strptime(date, "%Y-%m-%d %H")
-        print(dt)
         sql = "INSERT INTO traindata(captacha_name,captacha,sign,optdate)VALUES" \
-              " ('{}','{}', '{}', '{}')".format('2', '2', '3', str(date))
+              " (%s,%s, %s, %s)"
         print(sql)
         try:
             # 执行sql语句
-            self.cursor.execute(sql)
+            self.cursor.execute(sql,(captacha_name, captacha_data, sign, str(optdate)))
             # 提交到数据库执行
             self.db.commit()
         except BaseException:
             # 如果发生错误则回滚
             traceback.print_exc()
-
             self.db.rollback()
+
+    def getTrainData(self):
+        self.checkConnect()
+        self.cursor.execute("SELECT captacha_name,captacha,sign,optdate FROM traindata")
+        data = self.cursor.fetchall()
+        return data
 
     def closeDb(self):
         # 关闭数据库连接
-        self.cursor.close()
-        self.db.close()
+        if self.cursor is not None:
+            self.cursor.close()
+            self.db.close()
 
 
 if __name__ == '__main__':
-    m = DataPrepare()
+    m = DataPrepareDao()
     m.createTable()
-    m.addTrainData()
+    # m.addTrainData()
