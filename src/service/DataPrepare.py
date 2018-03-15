@@ -1,4 +1,5 @@
 import os
+import random
 
 import cv2
 from dao.DataPrepareDao import DataPrepareDao
@@ -32,24 +33,45 @@ class DataPrepare:
                 if os.path.isfile(imgFile):
                     imgData = cv2.imread(imgFile)
                     dumps = base64.b64encode(imgData.dumps())
-                    #print(dumps)
+                    # print(dumps)
                     # 依次插入到数据库的train表中
                     self.dpDao.addTrainData(imgFileName, dumps, imgSign, date)
         self.dpDao.closeDb()
 
-    def getTrainData(self):
-        data = self.dpDao.getTrainData()
-        return data
+    def getAllData(self):
+        datas = self.dpDao.getTrainData()
+
+        return datas
+
+    def getTrainAndTestData(self):
+        x_train = []
+        y_train = []
+        x_test = []
+        y_test = []
+
+        allData = list(self.getAllData())
+        testSize = int(len(allData) / 10)
+
+        random.shuffle(allData)
+        testData = allData[:testSize]
+        trainData = allData[testSize:]
+
+        for test in testData:
+            x_test.append(np.loads(base64.b64decode(test[1])))
+            y_test.append(test[2])
+
+        for train in trainData:
+            x_train.append(np.loads(base64.b64decode(train[1])))
+            y_train.append(train[2])
+
+        return (np.array(x_train), np.array(y_train)), (np.array(x_test), np.array(y_test))
 
 
 if __name__ == '__main__':
     dp = DataPrepare()
-    # 插入数据
-    dp.insertTrainData()
-    # 展示数据
-    datas = dp.getTrainData()
-    for data in datas:
-        data_ = data[0]
-        mat = np.loads(base64.b64decode(data[1]))
-        cv2.imshow(data_, mat)
-        cv2.waitKey()
+    dp.getTrainAndTestData()
+    # for data in datas:
+    #     data_ = data[0]
+    #     mat = np.loads(base64.b64decode(data[1]))
+    #     cv2.imshow(data_, mat)
+    #     cv2.waitKey()
