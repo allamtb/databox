@@ -28,7 +28,8 @@ k_means_labels_unique = np.unique(k_means_labels)
 # Plot result
 
 colors = ['#4EACC5', '#FF9C34', '#4E9A06', '#FF3300']
-for k, cololr in zip(range(n_clusters), colors):
+for k, color in zip(range(n_clusters), colors):
+    # 当前label的真值表
     my_members = k_means_labels == k
     cluster_center = k_means_cluster_centers[k]
     # 列值，展示在X轴
@@ -39,8 +40,8 @@ for k, cololr in zip(range(n_clusters), colors):
     # 故在展示的时候，用 rows(行高)来减去当前值来取反。
     coordinateY = rows - np.array(row_scatter)
     plt.plot(col_scatter, coordinateY, 'w',
-             markerfacecolor=cololr, marker='X')
-    plt.plot(cluster_center[1], cluster_center[0], 'o', markerfacecolor=cololr,
-             markeredgecolor='k', markersize=6)
+             markerfacecolor=color, marker='X',markersize=6)
+    plt.plot(cluster_center[1], cluster_center[0], 'o', markerfacecolor=color,
+             markeredgecolor='k', markersize=10)
 plt.title('KMeans')
 plt.show()
