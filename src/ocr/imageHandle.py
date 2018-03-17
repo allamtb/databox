@@ -24,10 +24,18 @@ class ImageHandler:
         self.threshold_number = 6
         # 设置 竖切数 ，越高切的越多。
         self.cutStepNumber = 2
+        # 普通降噪力度。
+        self.nomalStategy =(2,6)
+        #当切割不充分的时候，加大降噪力度。
+        self.hardStrategy =(3,7)
+        #当切割过于厉害的时候，减少降噪力度。
+        self.softStrategy =(2,4)
+
+        self.fileName = None
         #  設置 matplotlib 中文字體
-        self.font = FontProperties(fname=r"c:\windows\fonts\SimSun.ttc", size=14)
+        #self.font = FontProperties(fname=r"c:\windows\fonts\SimSun.ttc", size=14)
         #  儲存檔名
-        self.imageName = 'fileName'
+      #  self.imageName,_ =
         # #  儲存路徑
         # self.Path = Path
         #  用來儲放分割後的圖片邊緣坐標(x,y,w,h)
@@ -39,11 +47,21 @@ class ImageHandler:
         if type == 'url':
             image = np.asarray(bytearray(getimg), dtype="uint8")
             self.im = cv2.imdecode(image, cv2.IMREAD_COLOR)
+            self.rawim = self.im.copy()
         elif type == 'local':
             self.im = cv2.imread(getimg)
             self.dicImg.update({"原始圖片": self.im.copy()})
+            self.rawim = self.im.copy()
 
             #  閾值化
+
+    @property
+    def imgFileName(self):
+        if(self.fileName is None):
+            name,_ = os.path.splitext(os.path.basename(filePath))
+            return name
+        else:
+            return self.fileName
 
     def threshold(self):
         # 115 是 threshold，越高濾掉越多
@@ -99,14 +117,20 @@ class ImageHandler:
                     row += self.cutStepNumber
 
         self.dicImg.update({"切切切": self.im.copy()})
+        blur = cv2.GaussianBlur(self.im, (3,3), 0)
+        self.dicImg.update({"blur": blur})
+        # self.im = blur
+        retval, self.im = cv2.threshold(blur, 180, 255, cv2.THRESH_BINARY)
+        # self.threshold()
+
 
     #  將圖片顯示出來
     def showImg(self, img=None):
         if img is None:
             img = self.im
 
-        cv2.imshow(self.imageName, img)
-        cv2.namedWindow(self.imageName, cv2.WINDOW_NORMAL)
+        cv2.imshow(self.imgFileName, img)
+        cv2.namedWindow(self.imgFileName, cv2.WINDOW_NORMAL)
         cv2.waitKey()
 
     def saveImg(self, filePath=None):
@@ -114,7 +138,7 @@ class ImageHandler:
         cv2.imwrite(filePath, self.im)
 
     #  將多個圖片顯示在一個figure
-    def saveImgEveryStep(self, raw_name, show=False):
+    def saveImgEveryStep(self, show=False):
         diclength = len(self.dicImg)
         if diclength > 0:
             fig = plt.figure(figsize=(10, 10))
@@ -126,7 +150,7 @@ class ImageHandler:
                 if not isinstance(self.dicImg[key], list):
                     ax = fig.add_subplot(gs[index, :6])
                     ax.imshow(self.dicImg[key], interpolation='nearest')
-                    ax.set_title(key, fontproperties=self.font)
+                    ax.set_title(key)
                 else:
                     try:
                         for i, img in enumerate(self.dicImg[key]):
@@ -138,7 +162,7 @@ class ImageHandler:
             plt.tight_layout()
             if show:
                 plt.show()
-            plt.savefig("../../prethreatment/" + raw_name + ".jpg")
+            plt.savefig("../../data/prethreatment/" + self.imgFileName + ".jpg")
         else:
             print('圖片數字陣列為空')
 
@@ -171,6 +195,8 @@ class ImageHandler:
 
             for xoffset, yoffset in offsets:
                 x_neighbor, y_neighbor = x + xoffset, y + yoffset
+                if x_neighbor<0 or y_neighbor <0 :
+                    continue
 
                 if (x_neighbor, y_neighbor) in (visited):
                     continue  # 已经访问过了
@@ -206,36 +232,51 @@ class ImageHandler:
                 start += 1
         return letterGroup
 
+    def pipline(self, stategy =(2, 6)):
+        self.cutStepNumber = stategy[0]
+        self.threshold_number =stategy[1]
+        self.im = self.rawim.copy()
+        self.im = self.im[:, 38: 140]
+        self.threshold()
+        self.RemoveNoiseLine()
+        self.removeNoise()
+        self.saveImgEveryStep()
+        return self.getLetterGroup()
+
+
 if __name__ == '__main__':
     path = "../../data/captcha_dataset"
     for x in tqdm(os.listdir(path)):
         if os.path.isfile(os.path.join(path, x)):
-            filePath = path + '\\' + x
-            base_file_name = os.path.basename(filePath)
-            raw_name, _ = os.path.splitext(base_file_name)
-            if(raw_name != '1520911644.8154874'):
-                continue
+            filePath = path + os.path.sep + x
             imageHandler = ImageHandler(filePath, 'local')
-            imageHandler.im = imageHandler.im[:,40:130]
-            imageHandler.threshold()
-            imageHandler.RemoveNoiseLine()
-            imageHandler.removeNoise()
-            imageHandler.saveImgEveryStep(raw_name)
-            letterGroup= imageHandler.getLetterGroup()
-            if len(letterGroup) != len(raw_name):
-                # raise RuntimeError("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
-                print("验证码描述 {}和验证码切割长度{} 不匹配".format(raw_name, len(letterGroup)))
+            if (imageHandler.imgFileName != 'hudl'):
                 continue
+            print(imageHandler.imgFileName)
+
+            letterGroup = imageHandler.pipline()
+            # 如果切出来验证码少了，说明降噪不够
+            if len(letterGroup) < len(imageHandler.imgFileName):
+                print("验证码描述 {}和验证码切割长度{} 不匹配， try hard".format(imageHandler.imgFileName, len(letterGroup)))
+                letterGroup = imageHandler.pipline(imageHandler.hardStrategy)
+
+            elif len(letterGroup) > len(imageHandler.imgFileName):
+                print("验证码描述 {}和验证码切割长度{} 不匹配， try soft".format(imageHandler.imgFileName, len(letterGroup)))
+                letterGroup = imageHandler.pipline(imageHandler.softStrategy)
+
+
+            if len(letterGroup) != len(imageHandler.imgFileName):
+                print("验证码描述 {}和验证码切割长度{} 不匹配".format(imageHandler.imgFileName, len(letterGroup)))
+                continue
+            print("验证码描述 {}和验证码切割长度{} 已匹配".format(imageHandler.imgFileName, len(letterGroup)))
             for i in range(len(letterGroup)):
                 letter_index = letterGroup[i]
-
                 cropImage = imageHandler.im[:, min(letter_index):max(letter_index)]
                 #imageHandler.showImg(cropImage)
                 cropImage= cv2.resize(cropImage, (20, 60))
-                letterName = raw_name[i]
-                directoryPath = '../data/sample/' + letterName
+                letterName = imageHandler.imgFileName[i]
+                directoryPath = '../../data/sample/' + letterName
                 if not os.path.exists(directoryPath):
                     os.makedirs(directoryPath)
-
-                cv2.imwrite(directoryPath + "/" + letterName.upper() + "_" + raw_name + ".jpg", cropImage)
+                cv2.imwrite(directoryPath + "/" + letterName.upper() + "_" + imageHandler.imgFileName + ".jpg", cropImage)
                 cv2.waitKey(0)

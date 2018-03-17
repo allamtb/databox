@@ -142,5 +142,5 @@ def getPetsByPage(page_no):
 
 if __name__ == '__main__':
 
-    for i in tqdm(range(200)):
+    for i in tqdm(range(1000)):
         get_captcha()
