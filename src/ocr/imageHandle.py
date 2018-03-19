@@ -3,11 +3,15 @@ import numpy as np
 import cv2
 import collections
 from matplotlib import gridspec
-from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
 import queue
 import os
 
+from sklearn.cluster import KMeans
 from tqdm import tqdm
 
 
@@ -123,6 +127,43 @@ class ImageHandler:
         retval, self.im = cv2.threshold(blur, 180, 255, cv2.THRESH_BINARY)
         # self.threshold()
 
+    def kmean(self):
+        rows, cols = self.im.shape
+        X = [(row, col) for row in range(rows) for col in range(cols) if self.im[row][col] < 200]
+        X = np.array(X)
+        n_clusters = 4
+
+        ##############################################################################
+        # Compute clustering with KMeans
+
+        k_means = KMeans(init='k-means++', n_clusters=n_clusters)
+        k_means.fit(X)
+        k_means_labels = k_means.labels_
+        k_means_cluster_centers = k_means.cluster_centers_
+
+
+        ##############################################################################
+        # Plot result
+        colors = ['#4EACC5', '#FF9C34', '#4E9A06', '#FF3300']
+        plt.cla()
+        fig = Figure()
+
+        for k, color in zip(range(n_clusters), colors):
+            # 当前label的真值表
+            my_members = k_means_labels == k
+            cluster_center = k_means_cluster_centers[k]
+            # 列值，展示在X轴
+            col_scatter = X[my_members, 1]
+            # 行值，展示在Y轴plt.show()
+            row_scatter = X[my_members, 0]
+            # 因为图片的原点（0,0）在左上角，与普通坐标系的原点左下角，以X轴对称。
+            # 故在展示的时候，用 rows(行高)来减去当前值来取反。
+            coordinateY = rows - np.array(row_scatter)
+            plt.plot(col_scatter, coordinateY, 'w',
+                     markerfacecolor=color, marker='X', markersize=6)
+            plt.plot(cluster_center[1], cluster_center[0], 'o', markerfacecolor=color,
+                     markeredgecolor='k', markersize=10)
+        plt.savefig("kmeandata/"+self.imgFileName+"_kmean.jpg")
 
     #  將圖片顯示出來
     def showImg(self, img=None):
@@ -240,18 +281,20 @@ class ImageHandler:
         self.threshold()
         self.RemoveNoiseLine()
         self.removeNoise()
+        self.kmean()
         self.saveImgEveryStep()
         return self.getLetterGroup()
 
 
 if __name__ == '__main__':
     path = "../../data/captcha_dataset"
+    count = 0
     for x in tqdm(os.listdir(path)):
         if os.path.isfile(os.path.join(path, x)):
             filePath = path + os.path.sep + x
             imageHandler = ImageHandler(filePath, 'local')
-            if (imageHandler.imgFileName != 'hudl'):
-                continue
+            # if (imageHandler.imgFileName != 'hudl'):
+            #     continue
             print(imageHandler.imgFileName)
 
             letterGroup = imageHandler.pipline()
@@ -266,7 +309,9 @@ if __name__ == '__main__':
 
 
             if len(letterGroup) != len(imageHandler.imgFileName):
-                print("验证码描述 {}和验证码切割长度{} 不匹配".format(imageHandler.imgFileName, len(letterGroup)))
+                count += 1
+                print("验证码描述 {}和验证码切割长度{} 不匹配,{}个不匹配".format(imageHandler.imgFileName, len(letterGroup)),count)
+
                 continue
             print("验证码描述 {}和验证码切割长度{} 已匹配".format(imageHandler.imgFileName, len(letterGroup)))
             for i in range(len(letterGroup)):
@@ -275,7 +320,7 @@ if __name__ == '__main__':
                 #imageHandler.showImg(cropImage)
                 cropImage= cv2.resize(cropImage, (20, 60))
                 letterName = imageHandler.imgFileName[i]
-                directoryPath = '../../data/sample/' + letterName
+                directoryPath = '../../data/sample/' + letterName+'_'+str(ord(letterName))
                 if not os.path.exists(directoryPath):
                     os.makedirs(directoryPath)
                 cv2.imwrite(directoryPath + "/" + letterName.upper() + "_" + imageHandler.imgFileName + ".jpg", cropImage)
